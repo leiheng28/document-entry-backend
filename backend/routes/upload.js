@@ -48,22 +48,30 @@ router.post('/single', upload.single('document'), async (req, res) => {
     // 执行OCR识别
     const recognitionResult = await recognizeDocument(req.file.path);
 
+    // 处理多商品数据
+    const items = recognitionResult.items || [];
+    
+    // 如果有多个商品，将第一个商品作为主商品显示
+    const mainItem = items.length > 0 ? items[0] : {};
+    
     // 保存识别结果
     const savedResult = await saveRecognitionResult({
-      documentType: '送货单', // 暂时固定，后续可根据识别结果自动判断
+      documentType: '送货单',
       documentNumber: recognitionResult['单据编号'] || '',
       date: recognitionResult['日期'] || '',
-      amount: recognitionResult['金额'] || '',
+      amount: recognitionResult['合计金额'] || recognitionResult['金额'] || '',
       supplierName: recognitionResult['供应商名称'] || '',
       recipientName: recognitionResult['收货方名称'] || '',
-      goodsName: recognitionResult['商品名称'] || '',
-      specification: recognitionResult['规格型号'] || '',
-      quantity: recognitionResult['数量'] || '',
-      unitPrice: recognitionResult['单价'] || '',
+      goodsName: mainItem['商品名称'] || '',
+      specification: mainItem['规格型号'] || '',
+      quantity: mainItem['数量'] || '',
+      unitPrice: mainItem['单价'] || '',
       recipient: recognitionResult['收货人'] || '',
       remark: recognitionResult['备注'] || '',
       imagePath: req.file.filename,
-      recognitionTime: new Date().toISOString()
+      recognitionTime: new Date().toISOString(),
+      // 保存所有商品数据（JSON格式）
+      itemsData: JSON.stringify(items)
     });
 
     res.status(200).json({
@@ -94,44 +102,50 @@ router.post('/multiple', upload.array('documents', 10), async (req, res) => {
         // 执行OCR识别
         const recognitionResult = await recognizeDocument(file.path);
 
+        // 处理多商品数据
+        const items = recognitionResult.items || [];
+        const mainItem = items.length > 0 ? items[0] : {};
+
         // 保存识别结果
         const savedResult = await saveRecognitionResult({
           documentType: '送货单',
           documentNumber: recognitionResult['单据编号'] || '',
           date: recognitionResult['日期'] || '',
-          amount: recognitionResult['金额'] || '',
+          amount: recognitionResult['合计金额'] || recognitionResult['金额'] || '',
           supplierName: recognitionResult['供应商名称'] || '',
           recipientName: recognitionResult['收货方名称'] || '',
-          goodsName: recognitionResult['商品名称'] || '',
-          specification: recognitionResult['规格型号'] || '',
-          quantity: recognitionResult['数量'] || '',
-          unitPrice: recognitionResult['单价'] || '',
+          goodsName: mainItem['商品名称'] || '',
+          specification: mainItem['规格型号'] || '',
+          quantity: mainItem['数量'] || '',
+          unitPrice: mainItem['单价'] || '',
           recipient: recognitionResult['收货人'] || '',
           remark: recognitionResult['备注'] || '',
           imagePath: file.filename,
-          recognitionTime: new Date().toISOString()
+          recognitionTime: new Date().toISOString(),
+          itemsData: JSON.stringify(items)
         });
 
         results.push({
-          fileName: file.originalname,
           success: true,
           data: {
             recognitionResult,
-            savedId: savedResult.id
+            savedId: savedResult.id,
+            imagePath: file.filename
           }
         });
-      } catch (error) {
+      } catch (fileError) {
+        console.error(`文件 ${file.originalname} 处理失败:`, fileError);
         results.push({
-          fileName: file.originalname,
           success: false,
-          error: error.message
+          error: fileError.message,
+          filename: file.originalname
         });
       }
     }
 
     res.status(200).json({
       success: true,
-      results
+      data: results
     });
   } catch (error) {
     console.error('批量上传失败:', error);

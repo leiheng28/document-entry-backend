@@ -2,7 +2,7 @@
 cmds = ["npm install"]
 
 [phases.setup]
-nixPkgs = ["nodejs", "npm"]
+nixPkgs = ["nodejs-20_x", "npm"]
 
 [start]
 cmd = "npm start"

@@ -20,25 +20,32 @@ const supabase = createClient(
  */
 exports.saveRecognitionResult = async (data) => {
   try {
+    const insertData = {
+      document_type: data.documentType,
+      document_number: data.documentNumber,
+      date: data.date,
+      amount: data.amount,
+      supplier_name: data.supplierName,
+      recipient_name: data.recipientName,
+      goods_name: data.goodsName,
+      specification: data.specification,
+      quantity: data.quantity,
+      unit_price: data.unitPrice,
+      recipient: data.recipient,
+      remark: data.remark,
+      image_path: data.imagePath,
+      recognition_time: data.recognitionTime,
+      tag: '待核对' // 默认标签
+    };
+    
+    // 如果有itemsData，添加到数据中
+    if (data.itemsData) {
+      insertData.items_data = data.itemsData;
+    }
+    
     const { data: result, error } = await supabase
       .from('document_records')
-      .insert({
-        document_type: data.documentType,
-        document_number: data.documentNumber,
-        date: data.date,
-        amount: data.amount,
-        supplier_name: data.supplierName,
-        recipient_name: data.recipientName,
-        goods_name: data.goodsName,
-        specification: data.specification,
-        quantity: data.quantity,
-        unit_price: data.unitPrice,
-        recipient: data.recipient,
-        remark: data.remark,
-        image_path: data.imagePath,
-        recognition_time: data.recognitionTime,
-        tag: '待核对' // 默认标签
-      })
+      .insert(insertData)
       .select()
       .single();
 
@@ -94,7 +101,8 @@ exports.getHistoryRecords = async (options) => {
       unitPrice: item.unit_price,
       recipient: item.recipient,
       remark: item.remark,
-      imagePath: item.image_path
+      imagePath: item.image_path,
+      itemsData: item.items_data ? JSON.parse(item.items_data) : []
     }));
   } catch (error) {
     console.error('获取历史记录失败:', error);
@@ -136,7 +144,8 @@ exports.getHistoryRecordById = async (id) => {
       unitPrice: data.unit_price,
       recipient: data.recipient,
       remark: data.remark,
-      imagePath: data.image_path
+      imagePath: data.image_path,
+      itemsData: data.items_data ? JSON.parse(data.items_data) : []
     };
   } catch (error) {
     console.error('获取历史记录详情失败:', error);
