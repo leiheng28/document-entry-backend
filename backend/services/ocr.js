@@ -139,35 +139,55 @@ function parseTableRow(cells) {
   
   const item = {};
   
-  // 根据常见的表格列顺序解析
-  // 通常：商品名称 | 规格型号 | 数量 | 单价 | 金额
-  
-  // 第一列通常是商品名称
-  if (cells[0] && isProductName(cells[0])) {
-    item['商品名称'] = cells[0].trim();
+  // 遍历所有单元格，寻找商品名称
+  let productNameFound = false;
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    if (isProductName(cell)) {
+      item['商品名称'] = cell.trim();
+      productNameFound = true;
+      
+      // 尝试从后续单元格中提取其他信息
+      if (i + 1 < cells.length) item['规格型号'] = cells[i + 1].trim();
+      if (i + 2 < cells.length) item['单位'] = cells[i + 2].trim();
+      if (i + 3 < cells.length) item['数量'] = extractNumber(cells[i + 3]);
+      if (i + 4 < cells.length) item['单价'] = extractAmount(cells[i + 4]);
+      if (i + 5 < cells.length) item['金额'] = extractAmount(cells[i + 5]);
+      break;
+    }
   }
   
-  // 第二列通常是规格型号
-  if (cells[1]) {
-    item['规格型号'] = cells[1].trim();
+  // 如果没有找到商品名称，尝试从所有单元格中查找
+  if (!productNameFound) {
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i];
+      if (isProductName(cell)) {
+        item['商品名称'] = cell.trim();
+        productNameFound = true;
+        break;
+      }
+    }
   }
   
-  // 第三列通常是数量
-  if (cells[2]) {
-    const qty = extractNumber(cells[2]);
-    if (qty) item['数量'] = qty;
-  }
-  
-  // 第四列通常是单价
-  if (cells[3]) {
-    const price = extractAmount(cells[3]);
-    if (price) item['单价'] = price;
-  }
-  
-  // 第五列通常是金额
-  if (cells[4]) {
-    const amount = extractAmount(cells[4]);
-    if (amount) item['金额'] = amount;
+  // 如果找到了商品名称，尝试提取其他信息
+  if (productNameFound) {
+    // 遍历所有单元格，提取数量、单价、金额
+    cells.forEach((cell, index) => {
+      const text = cell.trim();
+      
+      // 数量
+      if (!item['数量'] && /^\d+(\.\d+)?$/.test(text)) {
+        item['数量'] = text;
+      }
+      // 单价
+      else if (!item['单价'] && /^\d+(\.\d+)?$/.test(text)) {
+        item['单价'] = text;
+      }
+      // 金额
+      else if (!item['金额'] && /^\d+(\.\d+)?$/.test(text)) {
+        item['金额'] = text;
+      }
+    });
   }
   
   return item;
@@ -278,7 +298,7 @@ function parseProductTable(textItems) {
  */
 function groupByRow(textItems) {
   const groups = {};
-  const yThreshold = 20; // Y坐标差异阈值，小于此值认为是同一行
+  const yThreshold = 30; // 增加阈值，适应表格行间距
   
   textItems.forEach(item => {
     const y = item.y;
@@ -313,44 +333,35 @@ function parseProductRow(cells) {
   
   const item = {};
   
-  // 遍历所有单元格，根据内容类型判断字段
-  cells.forEach((cell, index) => {
-    const text = cell.trim();
-    
-    // 商品名称：包含品牌关键词
-    if (!item['商品名称'] && isProductName(text)) {
-      item['商品名称'] = text;
-    }
-    // 规格型号：包含单位（ml, L, g, kg等）
-    else if (!item['规格型号'] && isSpecification(text)) {
-      item['规格型号'] = extractSpecification(text);
-    }
-    // 数量：纯数字或小数
-    else if (!item['数量'] && /^\d+(\.\d+)?$/.test(text)) {
-      // 如果已经有单价，这个可能是金额
-      if (!item['单价']) {
-        item['数量'] = text;
-      } else if (!item['金额']) {
-        item['金额'] = text;
+  // 遍历所有单元格，寻找商品名称
+  let productNameFound = false;
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    if (isProductName(cell)) {
+      item['商品名称'] = cell.trim();
+      productNameFound = true;
+      
+      // 尝试从后续单元格中提取其他信息
+      if (i + 1 < cells.length && isSpecification(cells[i + 1])) {
+        item['规格型号'] = extractSpecification(cells[i + 1]);
       }
-    }
-    // 单价：通常包含价格符号或在特定位置
-    else if (!item['单价'] && (text.includes('¥') || text.includes('￥') || /^\d+\.\d{1,2}$/.test(text))) {
-      const price = extractAmount(text);
-      if (price) item['单价'] = price;
-    }
-    // 金额：通常是较大的数字
-    else if (!item['金额'] && /^\d+(\.\d{1,2})?$/.test(text)) {
-      const num = parseFloat(text);
-      // 如果数字较大，可能是金额
-      if (num > 100 && !item['金额']) {
-        item['金额'] = text;
+      // 尝试从所有单元格中提取数量、单价、金额
+      for (let j = 0; j < cells.length; j++) {
+        const text = cells[j].trim();
+        if (!item['数量'] && /^\d+(\.\d+)?$/.test(text)) {
+          item['数量'] = text;
+        } else if (!item['单价'] && /^\d+(\.\d+)?$/.test(text)) {
+          item['单价'] = text;
+        } else if (!item['金额'] && /^\d+(\.\d+)?$/.test(text)) {
+          item['金额'] = text;
+        }
       }
+      break;
     }
-  });
+  }
   
-  // 如果没有金额但有数量和单价，计算金额
-  if (!item['金额'] && item['数量'] && item['单价']) {
+  // 如果找到了商品名称，但没有金额，尝试计算
+  if (productNameFound && !item['金额'] && item['数量'] && item['单价']) {
     const qty = parseFloat(item['数量']) || 0;
     const price = parseFloat(item['单价']) || 0;
     item['金额'] = (qty * price).toFixed(2);
