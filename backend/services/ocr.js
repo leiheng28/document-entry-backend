@@ -481,8 +481,9 @@ function getMockOcrResult() {
 function isProductName(text) {
   // 商品名称通常包含品牌或产品类型关键词
   const productKeywords = [
-    '元气森林', '外星人', '冰茶', '饮料', '食品', '脆皮肠', 
-    '水', '茶', '可乐', '果汁', '牛奶', '咖啡'
+    '元气森林', '元气', '森林', '外星人', '冰茶', '饮料', '食品', '脆皮肠', 
+    '水', '茶', '可乐', '果汁', '牛奶', '咖啡', '电解质', '维生素', '气泡水',
+    '自在水', '谷物水', '低糖'
   ];
   return productKeywords.some(keyword => text.includes(keyword));
 }
